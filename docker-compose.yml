@@ -1,0 +1,37 @@
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: pokeapi-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: pokeapi
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pokeapi-data:/var/lib/postgresql/data
+    networks:
+      - pokeapi-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pokeapi-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pokeapi.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - pokeapi-network
+
+volumes:
+  pokeapi-data:
+
+networks:
+  pokeapi-network:
+    driver: bridge
