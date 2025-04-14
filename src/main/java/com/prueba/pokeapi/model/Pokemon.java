@@ -19,7 +19,7 @@ public class Pokemon {
     @Column(name = "base_experience")
     private int baseExperience;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.EAGER)  // Se asegura de que los tipos se carguen de inmediato
     @JoinTable(
             name = "pokemon_type",
             joinColumns = @JoinColumn(name = "pokemon_id"),
@@ -27,7 +27,7 @@ public class Pokemon {
     )
     private Set<Type> types;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)  // Se asegura de que las habilidades se carguen de inmediato
     @JoinTable(
             name = "pokemon_ability",
             joinColumns = @JoinColumn(name = "pokemon_id"),

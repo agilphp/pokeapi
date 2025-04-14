@@ -34,26 +34,36 @@ public class PokemonServiceImpl implements PokemonService {
 
     @Override
     public List<Pokemon> findByType(String type) {
-        Type foundType = typeRepository.findByName(type);
-        if (foundType == null) {
+        try {
+            Type foundType = typeRepository.findByName(type);
+            if (foundType == null) {
+                return Collections.emptyList();
+            }
+
+            return pokemonRepository.findAll().stream()
+                    .filter(p -> p.getTypes().contains(foundType))
+                    .toList();
+        } catch (Exception e) {
+            System.err.println("Error al buscar Pokémon por tipo: " + e.getMessage());
             return Collections.emptyList();
         }
-
-        return pokemonRepository.findAll().stream()
-                .filter(p -> p.getTypes().contains(foundType))
-                .toList();
     }
 
     @Override
     public List<Pokemon> findByAbility(String ability) {
-        Ability foundAbility = abilityRepository.findByName(ability);
-        if (foundAbility == null) {
+        try {
+            Ability foundAbility = abilityRepository.findByName(ability);
+            if (foundAbility == null) {
+                return Collections.emptyList();
+            }
+
+            return pokemonRepository.findAll().stream()
+                    .filter(p -> p.getAbilities().contains(foundAbility))
+                    .toList();
+        } catch (Exception e) {
+            System.err.println("Error al buscar Pokémon por habilidad: " + e.getMessage());
             return Collections.emptyList();
         }
-
-        return pokemonRepository.findAll().stream()
-                .filter(p -> p.getAbilities().contains(foundAbility))
-                .toList();
     }
 
     @Override
@@ -65,55 +75,58 @@ public class PokemonServiceImpl implements PokemonService {
         Map<String, Type> typeCache = new HashMap<>();
         Map<String, Ability> abilityCache = new HashMap<>();
 
-        // Obtener total de pokémon (count)
-        String initialUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
-                .queryParam("limit", 1)
-                .queryParam("offset", 0)
-                .toUriString();
-
-        Map<?, ?> initialResponse = restTemplate.getForObject(initialUrl, Map.class);
-        int total = (int) initialResponse.get("count");
-
-        // Paginación
-        while (offset < total) {
-            String pageUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
-                    .queryParam("limit", limit)
-                    .queryParam("offset", offset)
+        try {
+            // Obtener total de pokémon (count)
+            String initialUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
+                    .queryParam("limit", 1)
+                    .queryParam("offset", 0)
                     .toUriString();
 
-            Map<?, ?> response = restTemplate.getForObject(pageUrl, Map.class);
-            List<Map<String, String>> results = (List<Map<String, String>>) response.get("results");
+            Map<?, ?> initialResponse = restTemplate.getForObject(initialUrl, Map.class);
+            int total = (int) initialResponse.get("count");
 
-            for (Map<String, String> item : results) {
-                try {
-                    Map<?, ?> fullData = restTemplate.getForObject(item.get("url"), Map.class);
-                    String name = (String) fullData.get("name");
-                    int height = (int) fullData.get("height");
-                    int weight = (int) fullData.get("weight");
-                    int baseExp = (int) fullData.get("base_experience");
+            // Paginación
+            while (offset < total) {
+                String pageUrl = UriComponentsBuilder.fromHttpUrl(baseUrl)
+                        .queryParam("limit", limit)
+                        .queryParam("offset", offset)
+                        .toUriString();
 
-                    Set<Type> types = extractTypes(fullData, typeCache);
-                    Set<Ability> abilities = extractAbilities(fullData, abilityCache);
+                Map<?, ?> response = restTemplate.getForObject(pageUrl, Map.class);
+                List<Map<String, String>> results = (List<Map<String, String>>) response.get("results");
 
-                    if (pokemonRepository.findByName(name) == null) {
-                        Pokemon p = new Pokemon();
-                        p.setName(name);
-                        p.setHeight(height);
-                        p.setWeight(weight);
-                        p.setBaseExperience(baseExp);
-                        p.setTypes(types);
-                        p.setAbilities(abilities);
-                        pokemonRepository.save(p);
+                for (Map<String, String> item : results) {
+                    try {
+                        Map<?, ?> fullData = restTemplate.getForObject(item.get("url"), Map.class);
+                        String name = (String) fullData.get("name");
+                        int height = (int) fullData.get("height");
+                        int weight = (int) fullData.get("weight");
+                        int baseExp = (int) fullData.get("base_experience");
+
+                        Set<Type> types = extractTypes(fullData, typeCache);
+                        Set<Ability> abilities = extractAbilities(fullData, abilityCache);
+
+                        if (pokemonRepository.findByName(name) == null) {
+                            Pokemon p = new Pokemon();
+                            p.setName(name);
+                            p.setHeight(height);
+                            p.setWeight(weight);
+                            p.setBaseExperience(baseExp);
+                            p.setTypes(types);
+                            p.setAbilities(abilities);
+                            pokemonRepository.save(p);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error al procesar el Pokémon: " + item.get("name") + " - " + e.getMessage());
                     }
-                } catch (Exception e) {
-                    System.err.println("Error al procesar el Pokémon: " + item.get("name") + " - " + e.getMessage());
                 }
-            }
 
-            offset += limit; // siguiente página
+                offset += limit; // siguiente página
+            }
+        } catch (Exception e) {
+            System.err.println("Error al sincronizar Pokémon desde la API: " + e.getMessage());
         }
     }
-
 
     private Set<Type> extractTypes(Map<?, ?> fullData, Map<String, Type> typeCache) {
         Set<Type> types = new HashSet<>();
@@ -148,20 +161,31 @@ public class PokemonServiceImpl implements PokemonService {
         }
         return abilities;
     }
+
     @Override
     public List<PokemonDTO> getAll() {
-        return pokemonRepository.findAll().stream().map(p -> {
-            PokemonDTO dto = new PokemonDTO();
-            dto.setId(p.getId());
-            dto.setName(p.getName());
-            dto.setTypes(p.getTypes().stream().map(Type::getName).toList());
-            return dto;
-        }).toList();
+        try {
+            return pokemonRepository.findAll().stream().map(p -> {
+                PokemonDTO dto = new PokemonDTO();
+                dto.setId(p.getId());
+                dto.setName(p.getName());
+                dto.setTypes(p.getTypes().stream().map(Type::getName).toList());
+                return dto;
+            }).toList();
+        } catch (Exception e) {
+            System.err.println("Error al obtener todos los Pokémon: " + e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
     @Override
     public Pokemon findByName(String name) {
-        return pokemonRepository.findByName(name);
+        try {
+            return pokemonRepository.findByName(name);
+        } catch (Exception e) {
+            System.err.println("Error al buscar Pokémon por nombre: " + e.getMessage());
+            return null;
+        }
     }
 
     // Método para mapear de Pokemon a PokemonDTO
